@@ -1,0 +1,187 @@
+---
+title: "Tidying and Transforming Vaccination Data"
+author: "Nnaemeka Newman Okereafor"
+date: "9/25/2021"
+output: html_document
+---
+
+```{r setup, warning=FALSE, message=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+### About the Assignment
+
+The dataset describes August 2021 data for Israeli hospitalization (“Severe Cases”) rates for
+people under 50 (assume “50 and under”) and over 50, for both un-vaccinated and fully vaccinated
+populations. The data was analyzed, and miscellaneous questions were also answered. 
+
+```{r warning=FALSE, message=FALSE}
+
+library(tidyverse)
+library(stringr)
+
+ulr  <- "https://raw.githubusercontent.com/nnaemeka-git/global-datasets/main/israeli_vaccination_data.csv"
+df<-read.csv(ulr,header = FALSE,skip=2,nrow=7)
+df
+glimpse(df)
+
+df<-df%>%select(c('V1','V2','V3','V4','V5','V6','V7'))
+df
+```
+
+### Age Range
+
+```{r}
+#Extract population Age
+Age <- unlist(str_extract_all(df$V1, "\\<\\d+.|\\>\\d+."))
+Age<-as.data.frame(Age)
+colnames(Age)<-"Age"
+Age
+
+```
+
+### Percentage figures
+
+```{r}
+#Extract population percent not vaccinated
+perc_pop_not_vax <- unlist(str_extract_all(df$V2, "\\d+..\\%"))
+perc_pop_not_vax <-str_remove_all(perc_pop_not_vax,"\\%")
+perc_pop_not_vax <-as.numeric(perc_pop_not_vax)
+perc_pop_not_vax<-as.data.frame(perc_pop_not_vax)
+colnames(perc_pop_not_vax)<-"Percent Population not vax"
+perc_pop_not_vax
+
+#Extract population percent Fully vaccinated
+perc_pop_fully_vax <- unlist(str_extract_all(df$V3, "\\d+..\\%"))
+perc_pop_fully_vax <-str_remove_all(perc_pop_fully_vax,"\\%")
+perc_pop_fully_vax <-as.numeric(perc_pop_fully_vax)
+perc_pop_fully_vax
+
+#Convert vector to dataframe
+perc_pop_fully_vax<-as.data.frame(perc_pop_fully_vax)
+colnames(perc_pop_fully_vax)<-"Percent Population fully vax"
+perc_pop_fully_vax
+
+```
+
+### Population figures 
+
+```{r}
+#Extract population not vaccinated
+pop_not_vax <- unlist(str_extract_all(df$V2, "[:digit:]+.[:digit:]+.\\d+"))
+pop_not_vax <-str_remove_all(pop_not_vax,"\\,")
+pop_not_vax <-as.numeric(pop_not_vax)
+pop_not_vax
+
+#Convert vector to dataframe
+pop_not_vax<-as.data.frame(pop_not_vax)
+colnames(pop_not_vax)<-"Population not vax"
+pop_not_vax
+
+#Extract population fully vaccinated
+pop_fully_vax <- unlist(str_extract_all(df$V3, "[:digit:]+.[:digit:]+.\\d+"))
+pop_fully_vax <-str_remove_all(pop_fully_vax,"\\,")
+pop_fully_vax <-as.numeric(pop_fully_vax)
+pop_fully_vax
+
+#Convert vector to dataframe
+pop_fully_vax<-as.data.frame(pop_fully_vax)
+colnames(pop_fully_vax)<-"Population fully vax"
+pop_fully_vax
+
+```
+
+
+### Severe case figures 
+
+```{r}
+#Extract severe cases not vaccinated
+sev_cases_not_vax <- unlist(str_replace_na(df$V4, "0"))
+sev_cases_not_vax <- unlist(str_extract_all(sev_cases_not_vax, "[:digit:]{2,}"))
+sev_cases_not_vax <-as.numeric(sev_cases_not_vax)
+sev_cases_not_vax
+
+#Convet vector to dataframe
+sev_cases_not_vax<-as.data.frame(sev_cases_not_vax)
+colnames(sev_cases_not_vax)<-"Severe cases not vax"
+sev_cases_not_vax
+
+
+#Extract severe cases fully vaccinated
+sev_fully_vax <- unlist(str_replace_na(df$V5, "0"))
+sev_fully_vax <-unlist(str_extract_all(sev_fully_vax, "[:digit:]{2,}"))
+sev_fully_vax <-as.numeric(sev_fully_vax)
+sev_fully_vax
+
+#Convert vector to dataframe
+sev_fully_vax<-as.data.frame(sev_fully_vax)
+colnames(sev_fully_vax)<-"Severe cases fully vax"
+sev_fully_vax
+
+```
+
+### New table
+
+```{r}
+#Combine dataframe
+table<-data.frame(Age,pop_not_vax,perc_pop_not_vax,pop_fully_vax,perc_pop_fully_vax,sev_cases_not_vax,sev_fully_vax)
+table
+```
+
+### Derive other columns
+
+```{r}
+
+table<-table%>%
+  mutate(severe.fully.vax.rate = round((table$Severe.cases.fully.vax/table$Population.fully.vax)*100000,1),
+        severe.cases.not.vax.rate = round((table$Severe.cases.not.vax/table$Population.not.vax)*100000,1),
+        Efficacy =round(((1-(severe.fully.vax.rate/severe.cases.not.vax.rate))*100),1),
+        Severe.case.rate=round(severe.cases.not.vax.rate/severe.fully.vax.rate),1)
+```
+
+### Select Columns in order
+
+```{r}
+table<-table %>% select(Age,
+         Population.not.vax,
+         Percent.Population.not.vax,
+         Population.fully.vax,
+         Percent.Population.fully.vax,
+         Severe.cases.not.vax,severe.cases.not.vax.rate,
+         Severe.cases.fully.vax,
+         severe.fully.vax.rate,
+         Efficacy,
+         Severe.case.rate)
+table
+names(table)
+```
+
+### Miscelleneous Questions
+
+### (1) Do you have enough information to calculate the total population? What does this total population represent?
+
+No. The total population comprises of people that are not vaccinated and people fully vaccinated and are above 16 years of age.
+
+### (2) Calculate the Efficacy vs. Disease; Explain your results.
+
+The efficacy of the vaccine was calculated based on the normalized values of severe cases per 100,000 people. The efficacy of approximately 92% and 85% for people <50 (more than 16years) years category and >50 years category respectively indicates that the vaccines are effective in preventing severe disease in people of those age range. However, one could speculate that the vaccines are more effective in people in the age less than 50 years.
+
+### (3) From your calculation of efficacy vs. disease, are you able to compare the rate of severe cases in unvaccinated individuals to that in vaccinated individuals?					
+
+From the table above, the rate of severe cases is approximately 13x higher in severe not vaccinated people than severe fully vaccinated people for individuals in <50 years age category. While it is approximately 7x higher in severe not vaccinated people than severe fully vaccinated people for individual in >50 years age category.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
